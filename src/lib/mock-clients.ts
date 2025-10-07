@@ -65,7 +65,7 @@ export class MockPerplexityClient {
     // Return mock analysis based on transcript content
     const lowerTranscript = transcript.toLowerCase();
     
-    let track = 'Game Design';
+    let track: 'Game Design' | 'Content Creation' | 'Game Asset Artist' = 'Game Design';
     let reason = 'User showed interest in interactive systems';
 
     if (lowerTranscript.includes('art') || lowerTranscript.includes('visual') || lowerTranscript.includes('drawing') || lowerTranscript.includes('3d') || lowerTranscript.includes('2d') || lowerTranscript.includes('modeling')) {

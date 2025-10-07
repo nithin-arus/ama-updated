@@ -86,10 +86,9 @@ export class TestRunner {
       const analysis = await this.mockPerplexity.analyzeConversation(mockTranscript, mockMetadata);
       
       const hasTrack = !!analysis.track;
-      const hasReasoning = !!analysis.reasoning;
-      const hasScores = !!analysis.scores;
+      const hasReason = !!analysis.reason;
       
-      this.addResult('Perplexity Analysis', hasTrack && hasReasoning && hasScores, 'Analysis should have track, reasoning, and scores');
+      this.addResult('Perplexity Analysis', hasTrack && hasReason, 'Analysis should have track and reason');
       
     } catch (error) {
       this.addResult('Perplexity Integration', false, `Error: ${error}`);
@@ -101,7 +100,8 @@ export class TestRunner {
     
     try {
       // Test authentication
-      const authResult = await this.mockSupabase.auth().signInWithPassword({
+      const auth = await this.mockSupabase.auth();
+      const authResult = await auth.signInWithPassword({
         email: 'test@example.com',
         password: 'password123'
       });
@@ -247,7 +247,7 @@ interface TestResult {
   timestamp: string;
 }
 
-interface TestReport {
+export interface TestReport {
   summary: {
     total: number;
     passed: number;

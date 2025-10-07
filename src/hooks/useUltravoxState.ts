@@ -11,6 +11,7 @@ interface TrackLockState {
   isLocked: boolean;
   assignedTrack: string | null;
   mounted: boolean;
+  syncCareerProgress?: (track: string, data: any) => Promise<void>;
 }
 
 // Helper function to synchronously get the initial state from localStorage on the client

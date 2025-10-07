@@ -1,14 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { useTrackLock } from '@/hooks/useUltravoxState';
-
-// Dynamically import react-youtube for client-side only
-const YouTube = dynamic(() => import('react-youtube'), { 
-  ssr: false,
-  loading: () => <div className="h-96 bg-gray-200 animate-pulse rounded" />
-});
 
 type Task = {
   id: string;
@@ -108,21 +101,15 @@ export const TaskDisplay: React.FC<Props> = ({ task, onComplete }) => {
       
       {task.type === 'video' && (
         <div className="mb-4">
-          <YouTube
-            videoId={extractVideoId(task.url)}
-            opts={{
-              width: '100%',
-              height: '390',
-              playerVars: {
-                autoplay: 0,
-                controls: 1,
-                modestbranding: 1,
-                rel: 0,
-              },
-            }}
-            onError={(error) => {
-              console.error('YouTube player error:', error);
-            }}
+          <iframe
+            width="100%"
+            height="390"
+            src={`https://www.youtube.com/embed/${extractVideoId(task.url)}`}
+            title={task.title}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="rounded"
           />
         </div>
       )}

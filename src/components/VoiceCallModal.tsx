@@ -9,7 +9,7 @@ import { UltravoxResponse } from '@/types';
 import toast from 'react-hot-toast';
 
 // Lazy load confetti for better performance
-const confetti = dynamic(() => import('canvas-confetti'), { ssr: false });
+const confetti = dynamic(() => import('canvas-confetti'), { ssr: false }) as any;
 
 interface VoiceCallModalProps {
   isOpen: boolean;
