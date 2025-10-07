@@ -17,8 +17,17 @@ export async function analyzeConversation(ultravoxJson: UltravoxResponse): Promi
     return await mockClient.analyzeConversation(ultravoxJson.transcript, ultravoxJson.metadata);
   }
 
-  // Use the provided API key
-  const API_KEY = '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';
+  // Get API key from environment variables
+  const API_KEY = process.env.PPLX_API_KEY;
+  
+  if (!API_KEY) {
+    console.error('PPLX_API_KEY environment variable is not set');
+    // Fallback to Content Creation if API key is not configured
+    return {
+      track: 'Content Creation',
+      reason: 'Fallback – API key not configured',
+    };
+  }
 
   const response = await fetch('https://api.perplexity.ai/v0/chat/completions', {
     method: 'POST',

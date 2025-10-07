@@ -42,8 +42,16 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       );
     }
 
-    // Use the provided API key
-    const API_KEY = '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';
+    // Get API key from environment variables
+    const API_KEY = process.env.PPLX_API_KEY;
+    
+    if (!API_KEY) {
+      console.error('PPLX_API_KEY environment variable is not set');
+      return NextResponse.json(
+        { track: 'Content Creation', reason: 'Fallback – API key not configured' },
+        { status: 500 }
+      );
+    }
 
     // Prepare the user prompt with full JSON transcript
     const userPrompt = `Analyze this career conversation transcript:
