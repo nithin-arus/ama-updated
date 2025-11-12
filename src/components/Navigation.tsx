@@ -3,17 +3,20 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Lock, User, LogOut, Menu, X } from 'lucide-react';
+import { Lock, User, LogOut, Menu, X, UserPlus } from 'lucide-react';
 import { useDashboardUnlock } from '@/hooks/useUltravoxState';
 import { useAuth } from '@/hooks/useAuth';
 import AuthModal from './AuthModal';
 import toast from 'react-hot-toast';
+
+type AuthMode = 'signin' | 'signup' | 'reset';
 
 export default function Navigation() {
   const pathname = usePathname();
   const { unlocked: isDashboardUnlocked, mounted: dashboardMounted } = useDashboardUnlock();
   const { user, signOut } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthMode>('signin');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -69,8 +72,8 @@ export default function Navigation() {
               ))}
             </div>
 
-            {/* Auth Button */}
-            <div className="hidden md:flex items-center">
+            {/* Auth Buttons */}
+            <div className="hidden md:flex items-center space-x-3">
               {user ? (
                 <div className="flex items-center space-x-4">
                   <span className="text-sm text-gray-700">
@@ -85,13 +88,28 @@ export default function Navigation() {
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="flex items-center space-x-1 bg-primary-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
-                >
-                  <User size={16} />
-                  <span>Sign In</span>
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setAuthModalMode('signin');
+                      setShowAuthModal(true);
+                    }}
+                    className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 px-4 py-2 rounded-md text-sm font-medium border border-gray-300 hover:border-primary-600"
+                  >
+                    <User size={16} />
+                    <span>Sign In</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAuthModalMode('signup');
+                      setShowAuthModal(true);
+                    }}
+                    className="flex items-center space-x-1 bg-primary-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
+                  >
+                    <UserPlus size={16} />
+                    <span>Sign Up</span>
+                  </button>
+                </>
               )}
             </div>
 
@@ -134,7 +152,7 @@ export default function Navigation() {
                 ))}
 
                 {/* Mobile Auth */}
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-gray-200 space-y-2">
                   {user ? (
                     <div className="space-y-2">
                       <div className="px-3 py-2 text-sm text-gray-700">
@@ -149,16 +167,30 @@ export default function Navigation() {
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => {
-                        setShowAuthModal(true);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="flex items-center space-x-2 w-full bg-primary-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
-                    >
-                      <User size={16} />
-                      <span>Sign In</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          setAuthModalMode('signin');
+                          setShowAuthModal(true);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center space-x-2 w-full text-gray-700 px-3 py-2 rounded-md text-sm font-medium border border-gray-300 hover:border-primary-600 hover:text-primary-600"
+                      >
+                        <User size={16} />
+                        <span>Sign In</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAuthModalMode('signup');
+                          setShowAuthModal(true);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="flex items-center space-x-2 w-full bg-primary-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
+                      >
+                        <UserPlus size={16} />
+                        <span>Sign Up</span>
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -171,6 +203,7 @@ export default function Navigation() {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+        initialMode={authModalMode}
       />
     </>
   );

@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialMode?: AuthMode;
 }
 
 type AuthMode = 'signin' | 'signup' | 'reset';
@@ -41,8 +42,8 @@ const OAUTH_PROVIDERS = [
   },
 ];
 
-export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const [mode, setMode] = useState<AuthMode>('signin');
+export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: AuthModalProps) {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -59,6 +60,14 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setHasCompletedAssessment(!!(completedAssessment || careerData));
     }
   }, [isOpen]);
+
+  // Reset to initial mode when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      resetForm();
+    }
+  }, [isOpen, initialMode]);
 
   if (!isOpen) return null;
 
