@@ -14,12 +14,24 @@ interface ErrorResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse<SessionResponse | ErrorResponse>> {
   try {
-    console.log('Starting Ultravox call with AMA_Updated agent...');
+    console.log('Starting Ultravox call with AMA AI agent (ID: 0f1cf764-bec8-447c-a692-2cb1b77ff452)...');
+
+    // Get API key from environment variables
+    const API_KEY = process.env.ULTRAVOX_API_KEY;
+
+    if (!API_KEY) {
+      console.error('ULTRAVOX_API_KEY environment variable is not set');
+      return NextResponse.json(
+        {
+          error: 'API key not configured',
+          details: 'ULTRAVOX_API_KEY environment variable is not set'
+        },
+        { status: 500 }
+      );
+    }
     
-    const API_KEY = '0IKNZlRW.Cgk3w7fAC95PmD9oB7KBffbK8EIRnpkk';
-    
-    // Start the call with AMA_Updated agent
-    const response = await fetch('https://api.ultravox.ai/api/agents/AMA_Updated/calls', {
+    // Start the call with AMA AI agent
+    const response = await fetch('https://api.ultravox.ai/api/agents/0f1cf764-bec8-447c-a692-2cb1b77ff452/calls', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

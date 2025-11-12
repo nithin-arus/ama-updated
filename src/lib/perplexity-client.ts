@@ -36,7 +36,7 @@ export async function analyzeConversation(ultravoxJson: UltravoxResponse): Promi
       'Authorization': `Bearer ${API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'pplx-70b-online',
+      model: 'sonar-small-chat',
       stream: false,
       messages: [
         {

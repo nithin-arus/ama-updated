@@ -4,7 +4,6 @@ import { GeistMono } from 'geist/font/mono';
 import { Toaster } from 'react-hot-toast';
 import Navigation from '@/components/Navigation';
 import { QueryProvider } from '@/components/QueryProvider';
-import { TestPanel } from '@/components/TestPanel';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -28,7 +27,6 @@ export default function RootLayout({
             <Navigation />
             <main>{children}</main>
             <Toaster position="top-right" />
-            <TestPanel />
           </div>
         </QueryProvider>
       </body>

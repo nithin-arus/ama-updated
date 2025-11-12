@@ -76,45 +76,34 @@ export default function CareerMapPage() {
       {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Choose Your Career Path
+          Career Paths
         </h1>
         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Explore different career tracks and find the one that matches your interests and goals.
-          {isLocked && (
-            <span className="block mt-2 text-orange-600 font-medium">
-              🔒 Your track is locked after completing the onboarding assessment.
+          Explore the different career tracks available in the game industry.
+          {assignedTrack && (
+            <span className="block mt-2 text-primary-600 font-medium">
+              Your assigned track: {assignedTrack}
             </span>
           )}
         </p>
       </div>
 
-      {/* Track Selection */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+      {/* Track Cards - Read-only display */}
+      <div className="grid md:grid-cols-3 gap-8 mb-12">
         {initialTracks.map((track) => {
-          const isSelected = selectedTrack === track.id;
-          const isDisabled = isLocked && assignedTrack !== track.id;
-          
+          const isAssigned = assignedTrack === track.id;
+
           return (
             <div
               key={track.id}
-              onClick={() => handleTrackSelect(track.id)}
-              className={`relative cursor-pointer transition-all duration-200 transform hover:scale-105 ${
-                isDisabled ? 'cursor-not-allowed opacity-60' : ''
-              }`}
-              title={isDisabled ? 'Track is locked after onboarding' : ''}
+              className="relative"
+              aria-disabled="true"
             >
-              <div className={`p-8 rounded-xl border-2 transition-colors ${
-                isSelected 
-                  ? `${track.borderColor} ${track.lightColor}` 
-                  : 'border-gray-200 bg-white hover:border-gray-300'
-              } ${isDisabled ? 'hover:border-gray-200' : ''}`}>
-                
-                {/* Lock Icon for Disabled Tracks */}
-                {isDisabled && (
-                  <div className="absolute top-4 right-4">
-                    <Lock className="w-5 h-5 text-gray-400" />
-                  </div>
-                )}
+              <div className={`p-8 rounded-xl border-2 transition-all ${
+                isAssigned
+                  ? `${track.borderColor} ${track.lightColor} ring-2 ring-offset-2 ${track.borderColor.replace('border', 'ring')}`
+                  : 'border-gray-200 bg-white'
+              }`}>
 
                 {/* Track Icon */}
                 <div className={`w-16 h-16 ${track.color} rounded-lg flex items-center justify-center text-white mb-6 mx-auto`}>
@@ -162,11 +151,11 @@ export default function CareerMapPage() {
                   </ul>
                 </div>
 
-                {/* Selection Indicator */}
-                {isSelected && (
+                {/* Assigned Indicator */}
+                {isAssigned && (
                   <div className="mt-6 text-center">
                     <div className={`inline-flex items-center px-4 py-2 ${track.color} text-white rounded-lg font-medium`}>
-                      ✓ Selected Track
+                      ✓ Your Track
                     </div>
                   </div>
                 )}
@@ -176,82 +165,19 @@ export default function CareerMapPage() {
         })}
       </div>
 
-      {/* Track Details */}
-      {selectedTrack && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Your {initialTracks.find(t => t.id === selectedTrack)?.title} Journey
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              {isLocked 
-                ? 'This is your assigned career track based on your assessment. Start learning and building your skills!'
-                : 'This track looks great! Complete your voice assessment to unlock your personalized learning path.'
-              }
-            </p>
-          </div>
-
-          {/* Learning Path Preview */}
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-gray-50 rounded-lg">
-              <div className="w-12 h-12 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                1
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Foundations</h3>
-              <p className="text-gray-600 text-sm">
-                Learn the fundamentals and core concepts
-              </p>
-            </div>
-
-            <div className="text-center p-6 bg-gray-50 rounded-lg">
-              <div className="w-12 h-12 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                2
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Practice</h3>
-              <p className="text-gray-600 text-sm">
-                Apply your skills through hands-on projects
-              </p>
-            </div>
-
-            <div className="text-center p-6 bg-gray-50 rounded-lg">
-              <div className="w-12 h-12 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                3
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Master</h3>
-              <p className="text-gray-600 text-sm">
-                Build a portfolio and advance your career
-              </p>
-            </div>
-          </div>
-
-          {!isLocked && (
-            <div className="text-center mt-8">
-              <p className="text-gray-600 mb-4">
-                Ready to start your journey? Take our voice assessment to unlock your personalized learning path.
-              </p>
-              <button
-                onClick={() => window.location.href = '/'}
-                className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 inline-flex items-center"
-              >
-                Start Assessment
-                <ArrowRight className="ml-2" size={18} />
-              </button>
-            </div>
-          )}
-
-          {isLocked && (
-            <div className="text-center mt-8">
-              <button
-                onClick={() => window.location.href = '/dashboard'}
-                className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 inline-flex items-center"
-              >
-                Go to Dashboard
-                <ArrowRight className="ml-2" size={18} />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Call to Action */}
+      <div className="text-center mt-12">
+        <p className="text-gray-600 mb-6 text-lg">
+          Want to discover which career track is right for you?
+        </p>
+        <button
+          onClick={() => window.location.href = '/'}
+          className="bg-primary-600 text-white px-8 py-4 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 inline-flex items-center text-lg font-semibold shadow-lg"
+        >
+          Talk to the AI Assistant
+          <ArrowRight className="ml-2" size={20} />
+        </button>
+      </div>
     </div>
   );
 }

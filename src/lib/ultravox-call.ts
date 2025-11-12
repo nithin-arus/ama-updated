@@ -1,6 +1,7 @@
 /**
  * Ultravox Call Management System
- * Handles real-time voice calls with the AMA_Updated agent
+ * Handles real-time voice calls with the AMA AI career counselor
+ * Agent ID: 0f1cf764-bec8-447c-a692-2cb1b77ff452
  */
 
 export interface UltravoxCallState {
@@ -19,18 +20,26 @@ export class UltravoxCallManager {
   private transcript: string[] = [];
   private eventSource: EventSource | null = null;
   private onStateChange: (state: UltravoxCallState) => void;
-  private API_KEY = '0IKNZlRW.Cgk3w7fAC95PmD9oB7KBffbK8EIRnpkk';
+  private API_KEY: string;
 
   constructor(onStateChange: (state: UltravoxCallState) => void) {
     this.onStateChange = onStateChange;
+
+    // Get API key from environment variables
+    const apiKey = process.env.NEXT_PUBLIC_ULTRAVOX_API_KEY;
+    if (!apiKey) {
+      console.error('NEXT_PUBLIC_ULTRAVOX_API_KEY environment variable is not set');
+      throw new Error('NEXT_PUBLIC_ULTRAVOX_API_KEY environment variable is not set');
+    }
+    this.API_KEY = apiKey;
   }
 
   async startCall(): Promise<void> {
     try {
       this.updateState({ isActive: false, isMuted: false, callId: null, error: null, transcript: [], duration: 0 });
 
-      // Start the call
-      const response = await fetch('https://api.ultravox.ai/api/agents/AMA_Updated/calls', {
+      // Start the call with AMA AI agent
+      const response = await fetch('https://api.ultravox.ai/api/agents/0f1cf764-bec8-447c-a692-2cb1b77ff452/calls', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

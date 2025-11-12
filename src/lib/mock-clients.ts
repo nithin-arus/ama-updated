@@ -56,15 +56,18 @@ export class MockUltravoxClient {
 
 // Mock Perplexity client for development/testing
 export class MockPerplexityClient {
-  async analyzeConversation(transcript: string, metadata: any) {
+  async analyzeConversation(transcript: string, metadata: any): Promise<{
+    track: 'Game Design' | 'Content Creation' | 'Game Asset Artist';
+    reason: string;
+  }> {
     console.log('🎭 Mock Perplexity: Analyzing conversation');
-    
+
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
+
     // Return mock analysis based on transcript content
     const lowerTranscript = transcript.toLowerCase();
-    
+
     let track: 'Game Design' | 'Content Creation' | 'Game Asset Artist' = 'Game Design';
     let reason = 'User showed interest in interactive systems';
 
@@ -182,13 +185,18 @@ export class MockSupabaseClient {
 // Utility function to check if we should use mock clients
 export function shouldUseMockClients(): boolean {
   const ultravoxKey = process.env.ULTRAVOX_API_KEY;
+  const ultravoxPublicKey = process.env.NEXT_PUBLIC_ULTRAVOX_API_KEY;
   const pplxKey = process.env.PPLX_API_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  
+
+  // List of placeholder values that indicate mock clients should be used
+  const placeholders = ['demo_key', 'your_ultravox_api_key_here', 'your_perplexity_api_key_here', 'your_supabase_url_here'];
+
   return (
-    !ultravoxKey || ultravoxKey === 'demo_key' ||
-    !pplxKey || pplxKey === 'demo_key' ||
-    !supabaseUrl || supabaseUrl === 'http://localhost:54321'
+    !ultravoxKey || placeholders.includes(ultravoxKey) ||
+    !ultravoxPublicKey || placeholders.includes(ultravoxPublicKey) ||
+    !pplxKey || placeholders.includes(pplxKey) ||
+    !supabaseUrl || supabaseUrl === 'http://localhost:54321' || placeholders.includes(supabaseUrl)
   );
 }
 

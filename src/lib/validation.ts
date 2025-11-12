@@ -29,14 +29,13 @@ export const CareerProgressDataSchema = z.object({
 
 // Analysis Response Schema
 export const AnalysisResponseSchema = z.object({
-  track: z.enum(['gameDesign', 'artDesign', 'contentCreation', 'productDesign']),
+  track: z.enum(['Game Design', 'Content Creation', 'Game Asset Artist']),
   reasoning: z.string(),
   scores: z.object({
     gameDesign: z.number().min(0).max(100),
-    artDesign: z.number().min(0).max(100),
     contentCreation: z.number().min(0).max(100),
-    productDesign: z.number().min(0).max(100),
-  }),
+    artDesign: z.number().min(0).max(100),
+  }).optional(),
 });
 
 // Ultravox Session Schema

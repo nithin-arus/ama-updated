@@ -58,7 +58,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
 
 ${JSON.stringify(body.raw, null, 2)}`;
 
-    // Call Perplexity API
+    // Call Perplexity API with sonar-small-chat model
     const perplexityResponse = await fetch('https://api.perplexity.ai/v0/chat/completions', {
       method: 'POST',
       headers: {
@@ -66,7 +66,7 @@ ${JSON.stringify(body.raw, null, 2)}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'pplx-70b-online',
+        model: 'sonar-small-chat',
         messages: [
           {
             role: 'system',

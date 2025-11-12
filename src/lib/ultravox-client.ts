@@ -52,13 +52,17 @@ export async function startSession(): Promise<UltravoxSession> {
     return await mockClient.startSession();
   }
 
-  // Use the provided API key for AMA_Updated agent
-  const API_KEY = '0IKNZlRW.Cgk3w7fAC95PmD9oB7KBffbK8EIRnpkk';
+  // Get API key from environment variables
+  const API_KEY = process.env.ULTRAVOX_API_KEY;
+
+  if (!API_KEY) {
+    throw new Error('ULTRAVOX_API_KEY environment variable is not set');
+  }
 
   return ultravoxCircuitBreaker.execute(async () => {
     return retryWithBackoff(async () => {
-      // Call the Ultravox API to start a call with AMA_Updated agent
-      const response = await fetch('https://api.ultravox.ai/api/agents/AMA_Updated/calls', {
+      // Call the Ultravox API to start a call with AMA AI agent (ID: 0f1cf764-bec8-447c-a692-2cb1b77ff452)
+      const response = await fetch('https://api.ultravox.ai/api/agents/0f1cf764-bec8-447c-a692-2cb1b77ff452/calls', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
