@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { X, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase, isSupabaseReady } from '@/lib/supabase-client';
+import { supabase } from '@/lib/supabase-client';
+import { isSupabaseConfigured as isSupabaseReady } from '@/lib/env';
 import toast from 'react-hot-toast';
 
 interface AuthModalProps {
