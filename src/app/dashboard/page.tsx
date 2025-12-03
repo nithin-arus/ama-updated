@@ -61,33 +61,52 @@ export default function DashboardPage() {
     const updatedData = { ...careerData };
     let taskFound = false;
 
-    // Find and complete the task
+    // Find and toggle the task completion status
     updatedData.levels.forEach(level => {
       level.tasks.forEach(task => {
-        if (task.id === taskId && !task.isCompleted) {
-          task.isCompleted = true;
-          updatedData.currentXP += task.xp;
+        if (task.id === taskId) {
+          // Toggle completion status
+          task.isCompleted = !task.isCompleted;
+
+          // Add or subtract XP based on new completion status
+          if (task.isCompleted) {
+            updatedData.currentXP += task.xp;
+          } else {
+            updatedData.currentXP -= task.xp;
+          }
+
           taskFound = true;
         }
       });
     });
 
     if (taskFound) {
-      // Check for level completion and unlocks
+      // Recalculate level completion and unlocks
       updatedData.levels.forEach((level, index) => {
         const allTasksCompleted = level.tasks.every(task => task.isCompleted);
-        if (allTasksCompleted && !level.isCompleted) {
-          level.isCompleted = true;
-          
-          // Unlock next level
-          if (index + 1 < updatedData.levels.length) {
-            updatedData.levels[index + 1].isUnlocked = true;
+
+        // Update level completion status
+        level.isCompleted = allTasksCompleted;
+
+        // Unlock next level if current level is completed
+        if (allTasksCompleted && index + 1 < updatedData.levels.length) {
+          updatedData.levels[index + 1].isUnlocked = true;
+        }
+
+        // Lock next level if current level is no longer completed
+        if (!allTasksCompleted && index + 1 < updatedData.levels.length) {
+          // Only lock if no tasks in next level are completed
+          const nextLevel = updatedData.levels[index + 1];
+          const hasCompletedTasksInNextLevel = nextLevel.tasks.some(t => t.isCompleted);
+          if (!hasCompletedTasksInNextLevel && index > 0) {
+            // Keep level 2 unlocked if level 1 exists, otherwise maintain unlock
+            nextLevel.isUnlocked = index === 0;
           }
         }
       });
 
       // Update current level
-      const currentLevel = updatedData.levels.find(level => 
+      const currentLevel = updatedData.levels.find(level =>
         updatedData.currentXP >= level.xpRequired && !level.isCompleted
       );
       if (currentLevel) {
@@ -95,7 +114,7 @@ export default function DashboardPage() {
       }
 
       setCareerData(updatedData);
-      
+
       // Save to localStorage and Supabase
       const track = getAssignedTrack();
       if (track) {
@@ -258,7 +277,13 @@ interface LevelCardProps {
 function LevelCard({ level, onCompleteTask }: LevelCardProps) {
   const completedTasks = level.tasks.filter(task => task.isCompleted).length;
   const totalTasks = level.tasks.length;
-  const progressPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+  // Calculate XP-based progress for this level
+  const earnedXP = level.tasks
+    .filter(task => task.isCompleted)
+    .reduce((sum, task) => sum + task.xp, 0);
+  const totalXP = level.tasks.reduce((sum, task) => sum + task.xp, 0);
+  const progressPercentage = totalXP > 0 ? (earnedXP / totalXP) * 100 : 0;
 
   return (
     <div className={`bg-white rounded-lg shadow-sm border-2 p-6 ${
@@ -287,7 +312,7 @@ function LevelCard({ level, onCompleteTask }: LevelCardProps) {
           <div className="mb-4">
             <div className="flex justify-between text-sm text-gray-600 mb-1">
               <span>Progress</span>
-              <span>{completedTasks} / {totalTasks} tasks</span>
+              <span>{earnedXP} / {totalXP} XP ({completedTasks} / {totalTasks} tasks)</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
@@ -318,6 +343,8 @@ interface TaskCardProps {
 }
 
 function TaskCard({ task, onComplete }: TaskCardProps) {
+  const [expanded, setExpanded] = useState(false);
+
   const getTaskIcon = (type: Task['type']) => {
     switch (type) {
       case 'video':
@@ -331,34 +358,117 @@ function TaskCard({ task, onComplete }: TaskCardProps) {
     }
   };
 
+  const extractYouTubeId = (url: string): string | null => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/,
+      /youtube\.com\/embed\/([^?&\s]+)/,
+      /youtube\.com\/v\/([^?&\s]+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) return match[1];
+    }
+    return null;
+  };
+
+  const youtubeVideos = task.resources
+    .map(url => ({ url, id: extractYouTubeId(url) }))
+    .filter(video => video.id !== null);
+
+  const otherResources = task.resources.filter(url => !extractYouTubeId(url));
+
   return (
     <div className={`p-4 rounded-lg border-2 transition-colors ${
-      task.isCompleted 
-        ? 'border-green-200 bg-green-50' 
+      task.isCompleted
+        ? 'border-green-200 bg-green-50'
         : 'border-gray-200 bg-white hover:border-primary-200'
     }`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center flex-1">
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-start flex-1">
           <span className="text-2xl mr-3">{getTaskIcon(task.type)}</span>
           <div className="flex-1">
             <h4 className="font-medium text-gray-900">{task.title}</h4>
-            <p className="text-sm text-gray-600">{task.description}</p>
+            <p className="text-sm text-gray-600 mt-1">{task.description}</p>
             <p className="text-xs text-gray-500 mt-1">{task.xp} XP</p>
           </div>
         </div>
-        
-        {task.isCompleted ? (
-          <div className="text-green-600 font-medium">✓ Complete</div>
-        ) : (
+
+        <div className="flex items-center gap-2 ml-4">
+          {task.resources.length > 0 && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="text-primary-600 hover:text-primary-700 text-sm font-medium whitespace-nowrap"
+            >
+              {expanded ? 'Hide Resources' : 'View Resources'}
+            </button>
+          )}
           <button
             onClick={onComplete}
-            className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 flex items-center"
+            className={`px-4 py-2 rounded-lg flex items-center whitespace-nowrap font-medium transition-colors ${
+              task.isCompleted
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-primary-600 text-white hover:bg-primary-700'
+            }`}
           >
-            Complete
-            <ArrowRight className="ml-1" size={16} />
+            {task.isCompleted ? (
+              <>
+                ✓ Completed
+                <ArrowRight className="ml-1 rotate-180" size={16} />
+              </>
+            ) : (
+              <>
+                Mark Complete
+                <ArrowRight className="ml-1" size={16} />
+              </>
+            )}
           </button>
-        )}
+        </div>
       </div>
+
+      {expanded && task.resources.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <h5 className="text-sm font-semibold text-gray-900 mb-3">Resources:</h5>
+
+          {/* YouTube Videos */}
+          {youtubeVideos.length > 0 && (
+            <div className="space-y-3 mb-4">
+              {youtubeVideos.map((video, idx) => (
+                <div key={idx} className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <iframe
+                    className="absolute top-0 left-0 w-full h-full rounded-lg"
+                    src={`https://www.youtube.com/embed/${video.id}`}
+                    title={`Video ${idx + 1}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Other Resources */}
+          {otherResources.length > 0 && (
+            <div className="space-y-2">
+              {otherResources.map((url, idx) => {
+                const displayUrl = url.length > 60 ? url.substring(0, 57) + '...' : url;
+                return (
+                  <a
+                    key={idx}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center text-sm text-primary-600 hover:text-primary-700 hover:underline"
+                  >
+                    <span className="mr-2">🔗</span>
+                    <span>{displayUrl}</span>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

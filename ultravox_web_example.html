@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultravox Call Manager - Web Example</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .status.idle {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status.calling {
+            background: #c8e6c9;
+            color: #388e3c;
+        }
+
+        .status.ending {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-start {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-start:hover:not(:disabled) {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-end {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-end:hover:not(:disabled) {
+            background: #da190b;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.3);
+        }
+
+        .info-box {
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .info-box strong {
+            color: #667eea;
+        }
+
+        .call-details {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            font-size: 13px;
+        }
+
+        .call-details p {
+            margin: 8px 0;
+            word-break: break-all;
+        }
+
+        .call-details strong {
+            color: #333;
+        }
+
+        .warning {
+            background: #fff9c4;
+            border-left: 4px solid #fbc02d;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Ultravox Call Manager</h1>
+        <p class="subtitle">Web example with automatic cleanup on tab close</p>
+
+        <div id="status" class="status idle">
+            Ready to start call
+        </div>
+
+        <button id="startBtn" class="btn-start" onclick="startCall()">
+            Start Call Session
+        </button>
+
+        <button id="endBtn" class="btn-end" onclick="endCall()" disabled>
+            End Call Session
+        </button>
+
+        <div class="info-box">
+            <strong>⚡ Automatic Charge Prevention:</strong><br>
+            • Call automatically ends when you click "End Call"<br>
+            • Call ends when you close/reload this tab<br>
+            • Call ends when you navigate away<br>
+            • Uses beforeunload and visibilitychange events
+        </div>
+
+        <div id="callDetails" class="call-details" style="display: none;">
+            <p><strong>Call ID:</strong> <span id="callId">-</span></p>
+            <p><strong>Status:</strong> <span id="billingStatus">-</span></p>
+            <p><strong>Duration:</strong> <span id="duration">0s</span></p>
+        </div>
+
+        <div class="warning" style="display: none;" id="warningBox">
+            ⚠️ <strong>Note:</strong> Call is active. Closing this tab will automatically end the call.
+        </div>
+    </div>
+
+    <script>
+        // Configuration - Replace with your credentials
+        const CONFIG = {
+            apiKey: 'Ub77u91T.rnbRMGhrz9YhyECkNuVUWIOfmi3whOwN',
+            agentId: '0f1cf764-bec8-447c-a692-2cb1b77ff452',
+            baseUrl: 'https://api.ultravox.ai/api'
+        };
+
+        let currentCallId = null;
+        let durationInterval = null;
+        let startTime = null;
+
+        // Update UI status
+        function updateStatus(message, type = 'idle') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Update call duration
+        function updateDuration() {
+            if (startTime) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('duration').textContent = `${elapsed}s`;
+            }
+        }
+
+        // Start a new call session
+        async function startCall() {
+            const startBtn = document.getElementById('startBtn');
+            const endBtn = document.getElementById('endBtn');
+
+            try {
+                startBtn.disabled = true;
+                updateStatus('Starting call session...', 'calling');
+
+                const response = await fetch(
+                    `${CONFIG.baseUrl}/agents/${CONFIG.agentId}/calls`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'X-API-Key': CONFIG.apiKey,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            templateContext: {}
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                currentCallId = data.callId;
+                startTime = Date.now();
+
+                // Update UI
+                updateStatus('✓ Call active - Remember to end when done!', 'calling');
+                document.getElementById('callId').textContent = data.callId;
+                document.getElementById('billingStatus').textContent = data.billingStatus;
+                document.getElementById('callDetails').style.display = 'block';
+                document.getElementById('warningBox').style.display = 'block';
+                endBtn.disabled = false;
+
+                // Start duration counter
+                durationInterval = setInterval(updateDuration, 1000);
+
+                console.log('Call started:', data);
+
+            } catch (error) {
+                console.error('Failed to start call:', error);
+                updateStatus(`✗ Error: ${error.message}`, 'error');
+                startBtn.disabled = false;
+            }
+        }
+
+        // End the current call session
+        async function endCall() {
+            if (!currentCallId) {
+                console.warn('No active call to end');
+                return;
+            }
+
+            const startBtn = document.getElementById('startBtn');
+            const endBtn = document.getElementById('endBtn');
+
+            try {
+                endBtn.disabled = true;
+                updateStatus('Ending call session...', 'ending');
+
+                const response = await fetch(
+                    `${CONFIG.baseUrl}/calls/${currentCallId}`,
+                    {
+                        method: 'DELETE',
+                        headers: {
+                            'X-API-Key': CONFIG.apiKey,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+
+                // Success or already ended (404)
+                if (response.ok || response.status === 404) {
+                    updateStatus('✓ Call ended successfully', 'idle');
+                    console.log('Call ended:', currentCallId);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                // Reset state
+                currentCallId = null;
+                startTime = null;
+                clearInterval(durationInterval);
+                document.getElementById('callDetails').style.display = 'none';
+                document.getElementById('warningBox').style.display = 'none';
+                startBtn.disabled = false;
+
+            } catch (error) {
+                console.error('Failed to end call:', error);
+                updateStatus(`✗ Error ending call: ${error.message}`, 'error');
+
+                // Still reset state on error
+                currentCallId = null;
+                startTime = null;
+                clearInterval(durationInterval);
+                startBtn.disabled = false;
+            }
+        }
+
+        // Cleanup function to end call before page unload
+        async function cleanupCall() {
+            if (currentCallId) {
+                // Use sendBeacon for reliability during page unload
+                const endpoint = `${CONFIG.baseUrl}/calls/${currentCallId}`;
+
+                // Try fetch with keepalive flag (more reliable than sendBeacon for DELETE)
+                try {
+                    await fetch(endpoint, {
+                        method: 'DELETE',
+                        headers: {
+                            'X-API-Key': CONFIG.apiKey,
+                            'Content-Type': 'application/json'
+                        },
+                        keepalive: true  // Ensures request completes even if page is closing
+                    });
+                    console.log('Call cleanup completed');
+                } catch (error) {
+                    console.error('Cleanup failed:', error);
+                }
+            }
+        }
+
+        // Register cleanup handlers
+        // 1. Before page unload (closing tab, refreshing, navigating away)
+        window.addEventListener('beforeunload', (event) => {
+            if (currentCallId) {
+                // Perform cleanup
+                cleanupCall();
+
+                // Show browser confirmation dialog
+                event.preventDefault();
+                event.returnValue = 'You have an active call. Are you sure you want to leave?';
+                return event.returnValue;
+            }
+        });
+
+        // 2. When page visibility changes (tab switching, minimizing)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && currentCallId) {
+                console.log('Page hidden with active call - ensuring cleanup registered');
+            }
+        });
+
+        // 3. When page is actually being unloaded (final cleanup)
+        window.addEventListener('unload', () => {
+            cleanupCall();
+        });
+
+        // 4. For mobile browsers - pagehide event
+        window.addEventListener('pagehide', () => {
+            cleanupCall();
+        });
+
+        console.log('Ultravox Call Manager initialized with automatic cleanup');
+    </script>
+</body>
+</html>

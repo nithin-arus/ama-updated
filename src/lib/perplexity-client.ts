@@ -29,15 +29,17 @@ export async function analyzeConversation(ultravoxJson: UltravoxResponse): Promi
     };
   }
 
-  const response = await fetch('https://api.perplexity.ai/v0/chat/completions', {
+  const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'sonar-small-chat',
+      model: 'sonar-pro',
       stream: false,
+      temperature: 0.1,
+      max_tokens: 500,
       messages: [
         {
           role: 'system',

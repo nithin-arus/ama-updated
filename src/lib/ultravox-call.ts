@@ -38,25 +38,18 @@ export class UltravoxCallManager {
     try {
       this.updateState({ isActive: false, isMuted: false, callId: null, error: null, transcript: [], duration: 0 });
 
-      // Start the call with AMA AI agent
-      const response = await fetch('https://api.ultravox.ai/api/agents/0f1cf764-bec8-447c-a692-2cb1b77ff452/calls', {
+      // Call the Next.js API route instead of calling Ultravox directly
+      // This prevents CORS issues and keeps the API key secure on the server
+      const response = await fetch('/api/start-voice-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': this.API_KEY,
         },
-        body: JSON.stringify({
-          prompt: "You are a career assessment AI. Start by greeting the user and asking them about their career interests, skills, and goals. Guide them through a conversation to understand what type of career path would suit them best.",
-          templateContext: {
-            assessment_type: "career_guidance",
-            focus_areas: ["interests", "skills", "goals", "experience"]
-          }
-        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Failed to start call: ${response.status} - ${errorData.message || response.statusText}`);
+        throw new Error(`Failed to start call: ${response.status} - ${errorData.error || response.statusText}`);
       }
 
       const data = await response.json();

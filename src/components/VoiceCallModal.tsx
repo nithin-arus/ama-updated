@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { UltravoxCallManager, UltravoxCallState } from '@/lib/ultravox-call';
-import { generateCareerMap } from '@/utils/api';
+import { analyzeAndSaveSession, generateCareerMap } from '@/utils/api';
 import { UltravoxResponse } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
 
 // Lazy load confetti for better performance
@@ -20,6 +21,7 @@ interface VoiceCallModalProps {
 type CallState = 'idle' | 'connecting' | 'active' | 'processing' | 'completed' | 'error';
 
 export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCallModalProps) {
+  const { userId } = useAuth();
   const [callState, setCallState] = useState<CallState>('idle');
   const [callData, setCallData] = useState<UltravoxCallState>({
     isActive: false,
@@ -112,21 +114,62 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
       if (!callManagerRef.current) return;
 
       const callData = callManagerRef.current.getCallData();
-      
-      // Create UltravoxResponse for analysis with full JSON data
-      const ultravoxResponse: UltravoxResponse = {
-        sessionId: callData.callId || 'unknown',
-        transcript: callData.transcript,
-        duration: callData.duration,
-        metadata: callData.metadata,
-      };
 
-      // Generate career map
-      const careerData = await generateCareerMap(ultravoxResponse);
-      
+      // Get the transcript as a string
+      const transcriptText = callData.transcript;
+
+      console.log('[VoiceCallModal] Processing call end:', {
+        callId: callData.callId,
+        transcriptLength: transcriptText.length,
+        duration: callData.duration,
+        userId: userId || 'not authenticated',
+      });
+
+      // If user is authenticated, use the new analyze-session endpoint
+      if (userId) {
+        // Step 1: Analyze session and save to Supabase (handles both Perplexity + DB)
+        const { track, reason } = await analyzeAndSaveSession(
+          transcriptText,
+          userId,
+          callData.callId || undefined,
+          callData.duration
+        );
+
+        console.log('[VoiceCallModal] Session analyzed:', { track, reason });
+
+        // Step 2: Generate content for the track
+        const contentResponse = await fetch(`/api/generate-content?track=${track}`);
+
+        if (!contentResponse.ok) {
+          throw new Error('Failed to generate content');
+        }
+
+        const careerData = await contentResponse.json();
+
+        // Step 3: Save to localStorage for immediate access
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('ama-call-completed', 'true');
+          localStorage.setItem('ama-assigned-track', track);
+          localStorage.setItem(`ama-career-data-${track}`, JSON.stringify(careerData));
+        }
+      } else {
+        // Fallback: User not authenticated, use old flow
+        console.warn('[VoiceCallModal] User not authenticated, using fallback flow');
+
+        const ultravoxResponse: UltravoxResponse = {
+          sessionId: callData.callId || 'unknown',
+          transcript: transcriptText,
+          duration: callData.duration,
+          metadata: callData.metadata,
+        };
+
+        // Use old generateCareerMap function
+        await generateCareerMap(ultravoxResponse);
+      }
+
       setCallState('completed');
       setProgress(100);
-      
+
       // Show success with confetti
       if (confetti) {
         confetti({
@@ -135,9 +178,9 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
           origin: { y: 0.6 }
         });
       }
-      
+
       toast.success('Assessment complete! Redirecting to your dashboard...');
-      
+
       // Close modal and redirect after delay
       setTimeout(() => {
         onComplete();

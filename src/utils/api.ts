@@ -1,6 +1,45 @@
 import { UltravoxResponse, CareerData, TrackType } from '@/types';
 import { supabase } from '@/lib/supabase-client';
 
+/**
+ * Analyze a session transcript using Perplexity and save to Supabase
+ * This is the new preferred method that handles both analysis and database persistence
+ */
+export async function analyzeAndSaveSession(
+  transcript: string,
+  userId: string,
+  callId?: string,
+  duration?: number
+): Promise<{ track: TrackType; reason: string }> {
+  try {
+    const response = await fetch('/api/analyze-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transcript,
+        userId,
+        callId,
+        duration,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to analyze session');
+    }
+
+    const result = await response.json();
+    return {
+      track: result.track,
+      reason: result.reason,
+    };
+  } catch (error) {
+    console.error('Error analyzing session:', error);
+    throw error;
+  }
+}
+
 export async function generateCareerMap(raw: UltravoxResponse): Promise<CareerData> {
   try {
     // Step 1: Analyze conversation
