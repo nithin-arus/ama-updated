@@ -2,15 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { X, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import { UltravoxCallManager, UltravoxCallState } from '@/lib/ultravox-call';
 import { analyzeAndSaveSession, generateCareerMap } from '@/utils/api';
 import { UltravoxResponse } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
-
-// Lazy load confetti for better performance
-const confetti = dynamic(() => import('canvas-confetti'), { ssr: false }) as any;
+import AuthModal from './AuthModal';
+import ConfettiModal from './ConfettiModal';
 
 interface VoiceCallModalProps {
   isOpen: boolean;
@@ -32,6 +30,9 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
     duration: 0,
   });
   const [progress, setProgress] = useState(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showConfettiModal, setShowConfettiModal] = useState(false);
+  const [assignedTrack, setAssignedTrack] = useState<string>('');
   const callManagerRef = useRef<UltravoxCallManager | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -40,6 +41,16 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
       cleanup();
     }
   }, [isOpen]);
+
+  // Watch for successful sign in after assessment
+  useEffect(() => {
+    if (showAuthModal && userId) {
+      // User just signed in successfully
+      setShowAuthModal(false);
+      setShowConfettiModal(true);
+      toast.success('Welcome! Your progress has been saved.');
+    }
+  }, [userId, showAuthModal]);
 
   const cleanup = () => {
     if (callManagerRef.current) {
@@ -125,36 +136,22 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
         userId: userId || 'not authenticated',
       });
 
-      // If user is authenticated, use the new analyze-session endpoint
+      // Analyze the session (works for both authenticated and non-authenticated)
+      let track: string;
+
       if (userId) {
-        // Step 1: Analyze session and save to Supabase (handles both Perplexity + DB)
-        const { track, reason } = await analyzeAndSaveSession(
+        // User is authenticated - save to Supabase
+        const { track: assignedTrack, reason } = await analyzeAndSaveSession(
           transcriptText,
           userId,
           callData.callId || undefined,
           callData.duration
         );
-
+        track = assignedTrack;
         console.log('[VoiceCallModal] Session analyzed:', { track, reason });
-
-        // Step 2: Generate content for the track
-        const contentResponse = await fetch(`/api/generate-content?track=${track}`);
-
-        if (!contentResponse.ok) {
-          throw new Error('Failed to generate content');
-        }
-
-        const careerData = await contentResponse.json();
-
-        // Step 3: Save to localStorage for immediate access
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('ama-call-completed', 'true');
-          localStorage.setItem('ama-assigned-track', track);
-          localStorage.setItem(`ama-career-data-${track}`, JSON.stringify(careerData));
-        }
       } else {
-        // Fallback: User not authenticated, use old flow
-        console.warn('[VoiceCallModal] User not authenticated, using fallback flow');
+        // User not authenticated - analyze but save to localStorage
+        console.log('[VoiceCallModal] User not authenticated, analyzing locally');
 
         const ultravoxResponse: UltravoxResponse = {
           sessionId: callData.callId || 'unknown',
@@ -163,35 +160,59 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
           metadata: callData.metadata,
         };
 
-        // Use old generateCareerMap function
-        await generateCareerMap(ultravoxResponse);
+        // Use old generateCareerMap function to get the track
+        const result = await generateCareerMap(ultravoxResponse);
+        track = result.selectedTrack || 'Game Design'; // Default fallback
+      }
+
+      // Generate content for the track
+      const contentResponse = await fetch(`/api/generate-content?track=${track}`);
+      if (!contentResponse.ok) {
+        throw new Error('Failed to generate content');
+      }
+      const careerData = await contentResponse.json();
+
+      // Save to localStorage for immediate access
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ama-call-completed', 'true');
+        localStorage.setItem('ama-assigned-track', track);
+        localStorage.setItem(`ama-career-data-${track}`, JSON.stringify(careerData));
       }
 
       setCallState('completed');
       setProgress(100);
+      setAssignedTrack(track);
 
-      // Show success with confetti
-      if (confetti) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
+      // Close the voice call modal
+      onClose();
+
+      // If user is not authenticated, show sign in modal
+      if (!userId) {
+        toast.success('Assessment complete! Please sign in to save your progress.');
+        setShowAuthModal(true);
+      } else {
+        // User is authenticated, show confetti immediately
+        toast.success('Assessment complete!');
+        setShowConfettiModal(true);
       }
-
-      toast.success('Assessment complete! Redirecting to your dashboard...');
-
-      // Close modal and redirect after delay
-      setTimeout(() => {
-        onComplete();
-        onClose();
-      }, 2000);
 
     } catch (error) {
       console.error('Error processing call data:', error);
       setCallState('error');
       toast.error('Error processing assessment. Please try again.');
     }
+  };
+
+  // Handle successful sign in after assessment
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    setShowConfettiModal(true);
+  };
+
+  // Handle confetti modal continue
+  const handleConfettiContinue = () => {
+    setShowConfettiModal(false);
+    onComplete(); // This will redirect to dashboard
   };
 
   const startProgressTimer = () => {
@@ -221,13 +242,14 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="voice-call-title"
-      aria-describedby="voice-call-description"
-    >
+    <>
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="voice-call-title"
+        aria-describedby="voice-call-description"
+      >
       <div className="bg-white rounded-lg w-full max-w-md p-6 relative">
         <button
           onClick={onClose}
@@ -363,5 +385,25 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
         </div>
       </div>
     </div>
+
+    {/* Sign In Modal - shown after assessment if user is not authenticated */}
+    <AuthModal
+      isOpen={showAuthModal}
+      onClose={() => {
+        setShowAuthModal(false);
+        // If user closes without signing in, still show confetti
+        setShowConfettiModal(true);
+      }}
+      initialMode="signin"
+    />
+
+    {/* Confetti Celebration Modal - shown after sign in or immediately if authenticated */}
+    <ConfettiModal
+      isOpen={showConfettiModal}
+      onClose={() => setShowConfettiModal(false)}
+      track={assignedTrack}
+      onContinue={handleConfettiContinue}
+    />
+    </>
   );
 }

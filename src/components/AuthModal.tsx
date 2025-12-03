@@ -13,7 +13,7 @@ interface AuthModalProps {
   initialMode?: AuthMode;
 }
 
-type AuthMode = 'signin' | 'signup' | 'reset';
+type AuthMode = 'signin' | 'reset';
 
 // OAuth provider configuration
 const OAUTH_PROVIDERS = [
@@ -50,17 +50,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hasCompletedAssessment, setHasCompletedAssessment] = useState(false);
   const { signIn, signUp, resetPassword } = useAuth();
-
-  // Check if user has completed AMA assessment
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const completedAssessment = localStorage.getItem('assessmentCompleted');
-      const careerData = localStorage.getItem('careerData');
-      setHasCompletedAssessment(!!(completedAssessment || careerData));
-    }
-  }, [isOpen]);
 
   // Reset to initial mode when modal opens
   useEffect(() => {
@@ -84,13 +74,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
       return;
     }
 
-    // Block sign-up if assessment not completed
-    if (mode === 'signup' && !hasCompletedAssessment) {
-      setError('You must complete a session with AMA before signing up for career development.');
-      toast.error('You must complete a session with AMA before signing up for career development.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
@@ -98,10 +81,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
       if (mode === 'signin') {
         await signIn(email, password);
         toast.success('Successfully signed in!');
-        onClose();
-      } else if (mode === 'signup') {
-        await signUp(email, password);
-        toast.success('Account created! Please check your email for verification.');
         onClose();
       } else if (mode === 'reset') {
         await resetPassword(email);
@@ -163,11 +142,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
   };
 
   const switchMode = (newMode: AuthMode) => {
-    // Block sign-up if assessment not completed
-    if (newMode === 'signup' && !hasCompletedAssessment) {
-      toast.error('You must complete a session with AMA before signing up for career development.');
-      return;
-    }
     setMode(newMode);
     resetForm();
   };
@@ -192,12 +166,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
         <div className="mb-6">
           <h2 id="auth-modal-title" className="text-2xl font-bold text-gray-900 mb-2">
             {mode === 'signin' && 'Welcome Back'}
-            {mode === 'signup' && 'Create Account'}
             {mode === 'reset' && 'Reset Password'}
           </h2>
           <p id="auth-modal-description" className="text-gray-600">
             {mode === 'signin' && 'Sign in to your account to continue'}
-            {mode === 'signup' && 'Create an account to save your progress'}
             {mode === 'reset' && 'Enter your email to reset your password'}
           </p>
 
@@ -209,19 +181,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
                 <p className="text-red-800 text-sm font-medium">Supabase Not Configured</p>
                 <p className="text-red-700 text-sm mt-1">
                   Please set up your Supabase project credentials in .env.local to enable authentication.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Assessment completion warning for sign-up */}
-          {isSupabaseReady && mode === 'signup' && !hasCompletedAssessment && (
-            <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-orange-800 text-sm font-medium">Assessment Required</p>
-                <p className="text-orange-700 text-sm mt-1">
-                  You must complete a session with AMA before signing up for career development.
                 </p>
               </div>
             </div>
@@ -307,9 +266,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
 
           <button
             type="submit"
-            disabled={loading || !!oauthLoading || (mode === 'signup' && !hasCompletedAssessment)}
+            disabled={loading || !!oauthLoading}
             className="w-full bg-primary-600 text-white py-2 px-4 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            title={mode === 'signup' && !hasCompletedAssessment ? 'Complete AMA assessment first' : ''}
           >
             {loading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -317,7 +275,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
               <>
                 <User className="mr-2" size={18} />
                 {mode === 'signin' && 'Sign In'}
-                {mode === 'signup' && 'Create Account'}
                 {mode === 'reset' && 'Send Reset Email'}
               </>
             )}
@@ -326,41 +283,12 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'signin' }: A
 
         <div className="mt-6 text-center text-sm">
           {mode === 'signin' && (
-            <>
-              <p className="text-gray-600 mb-2">
-                Don't have an account?{' '}
-                <button
-                  onClick={() => switchMode('signup')}
-                  className={`font-medium ${
-                    hasCompletedAssessment
-                      ? 'text-primary-600 hover:text-primary-700 cursor-pointer'
-                      : 'text-gray-400 cursor-not-allowed'
-                  }`}
-                  disabled={!hasCompletedAssessment}
-                  title={!hasCompletedAssessment ? 'Complete AMA assessment first' : ''}
-                >
-                  Sign up
-                </button>
-              </p>
-              <button
-                onClick={() => switchMode('reset')}
-                className="text-primary-600 hover:text-primary-700 font-medium"
-              >
-                Forgot your password?
-              </button>
-            </>
-          )}
-
-          {mode === 'signup' && (
-            <p className="text-gray-600">
-              Already have an account?{' '}
-              <button
-                onClick={() => switchMode('signin')}
-                className="text-primary-600 hover:text-primary-700 font-medium"
-              >
-                Sign in
-              </button>
-            </p>
+            <button
+              onClick={() => switchMode('reset')}
+              className="text-primary-600 hover:text-primary-700 font-medium"
+            >
+              Forgot your password?
+            </button>
           )}
 
           {mode === 'reset' && (

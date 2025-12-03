@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Lock, User, LogOut, Menu, X, UserPlus } from 'lucide-react';
+import { Lock, User, LogOut, Menu, X } from 'lucide-react';
 import { useDashboardUnlock } from '@/hooks/useUltravoxState';
 import { useAuth } from '@/hooks/useAuth';
 import AuthModal from './AuthModal';
 import toast from 'react-hot-toast';
 
-type AuthMode = 'signin' | 'signup' | 'reset';
+type AuthMode = 'signin' | 'reset';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -94,20 +94,10 @@ export default function Navigation() {
                       setAuthModalMode('signin');
                       setShowAuthModal(true);
                     }}
-                    className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 px-4 py-2 rounded-md text-sm font-medium border border-gray-300 hover:border-primary-600"
+                    className="flex items-center space-x-1 bg-primary-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
                   >
                     <User size={16} />
                     <span>Sign In</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setAuthModalMode('signup');
-                      setShowAuthModal(true);
-                    }}
-                    className="flex items-center space-x-1 bg-primary-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
-                  >
-                    <UserPlus size={16} />
-                    <span>Sign Up</span>
                   </button>
                 </>
               )}
@@ -174,21 +164,10 @@ export default function Navigation() {
                           setShowAuthModal(true);
                           setIsMobileMenuOpen(false);
                         }}
-                        className="flex items-center space-x-2 w-full text-gray-700 px-3 py-2 rounded-md text-sm font-medium border border-gray-300 hover:border-primary-600 hover:text-primary-600"
+                        className="flex items-center space-x-2 w-full bg-primary-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
                       >
                         <User size={16} />
                         <span>Sign In</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setAuthModalMode('signup');
-                          setShowAuthModal(true);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex items-center space-x-2 w-full bg-primary-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
-                      >
-                        <UserPlus size={16} />
-                        <span>Sign Up</span>
                       </button>
                     </>
                   )}

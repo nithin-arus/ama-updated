@@ -7,11 +7,15 @@ import { useDashboardUnlock } from '@/hooks/useUltravoxState';
 import { loadCareerData, getAssignedTrack } from '@/utils/api';
 import { CareerData, Level, Task } from '@/types';
 import { DashboardDebug } from '@/components/DashboardDebug';
+import { useAuth } from '@/hooks/useAuth';
+import { syncProgress, loadProgress } from '@/lib/progress';
+import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
   const [careerData, setCareerData] = useState<CareerData | null>(null);
   const [loading, setLoading] = useState(true);
   const { unlocked: isDashboardUnlocked, mounted } = useDashboardUnlock();
+  const { userId } = useAuth();
   const router = useRouter();
   const redirectGuard = useRef(false);
 
@@ -38,9 +42,20 @@ export default function DashboardPage() {
           const track = getAssignedTrack();
           console.log('Assigned track:', track);
           if (track) {
-            const data = loadCareerData(track);
-            console.log('Loaded career data:', data);
-            setCareerData(data);
+            // Try to load from Supabase first (if user is authenticated)
+            console.log('[Dashboard] Loading progress for user:', userId || 'not authenticated');
+            const savedProgress = await loadProgress(userId || null, track);
+
+            if (savedProgress) {
+              console.log('[Dashboard] Loaded saved progress from Supabase/localStorage');
+              setCareerData(savedProgress);
+            } else {
+              // No saved progress, load fresh career data
+              console.log('[Dashboard] No saved progress, loading fresh data');
+              const data = loadCareerData(track);
+              console.log('Loaded career data:', data);
+              setCareerData(data);
+            }
           } else {
             console.log('No assigned track found');
           }
@@ -53,13 +68,14 @@ export default function DashboardPage() {
 
       loadData();
     }
-  }, [mounted, isDashboardUnlocked, router]);
+  }, [mounted, isDashboardUnlocked, router, userId]);
 
-  const completeTask = (taskId: string) => {
+  const completeTask = async (taskId: string) => {
     if (!careerData) return;
 
     const updatedData = { ...careerData };
     let taskFound = false;
+    let taskName = '';
 
     // Find and toggle the task completion status
     updatedData.levels.forEach(level => {
@@ -67,6 +83,7 @@ export default function DashboardPage() {
         if (task.id === taskId) {
           // Toggle completion status
           task.isCompleted = !task.isCompleted;
+          taskName = task.title;
 
           // Add or subtract XP based on new completion status
           if (task.isCompleted) {
@@ -115,11 +132,21 @@ export default function DashboardPage() {
 
       setCareerData(updatedData);
 
-      // Save to localStorage and Supabase
+      // Save to both localStorage and Supabase
       const track = getAssignedTrack();
       if (track) {
-        localStorage.setItem(`ama-career-data-${track}`, JSON.stringify(updatedData));
-        // TODO: Also save to Supabase
+        const { success, error } = await syncProgress(
+          userId || null,
+          track,
+          updatedData
+        );
+
+        if (success && userId) {
+          console.log('[Dashboard] Progress saved to Supabase');
+        } else if (error) {
+          console.error('[Dashboard] Failed to save to Supabase:', error);
+          toast.error('Progress saved locally, but failed to sync to cloud');
+        }
       }
     }
   };

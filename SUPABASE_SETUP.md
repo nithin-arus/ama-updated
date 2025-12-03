@@ -1,239 +1,293 @@
-# Supabase Setup Guide
+# Supabase Setup Guide for AMA Career Platform
 
-This guide will help you set up Supabase for the AMA Career Platform to enable authentication and data persistence.
+## Overview
 
-## Why Supabase?
+Your AMA Career Platform uses Supabase for:
+- **User Authentication** (Email/Password + Google OAuth)
+- **Career Progress Storage** (Track assignments, XP, completed tasks)
+- **User Profiles** (Career track assignments, session transcripts)
 
-Supabase provides:
-- **User Authentication** - Sign-in with email/password and Google OAuth
-- **Database** - PostgreSQL database for storing user profiles and progress
-- **Real-time** - Sync data across devices
-- **Security** - Row-level security policies
+## Current Supabase Configuration
 
-## Step 1: Create a Supabase Project
+Your Supabase project is already configured with:
+- **URL**: `https://vuaeriezdmrzalnxbyss.supabase.co`
+- **Anonymous Key**: Configured in `.env.local`
 
-1. Go to [https://supabase.com/dashboard](https://supabase.com/dashboard)
-2. Click "New Project"
-3. Fill in the details:
-   - **Name**: AMA Career Platform
-   - **Database Password**: Choose a strong password (save it!)
-   - **Region**: Choose closest to your users
-4. Click "Create new project"
-5. Wait 2-3 minutes for the project to be provisioned
+## Required Database Tables
 
-## Step 2: Get Your API Credentials
+You need to ensure these two tables exist in your Supabase database:
 
-1. In your Supabase dashboard, go to **Settings** > **API**
-2. Find these two values:
-   - **Project URL** (looks like `https://xxxxxxxxxxxxx.supabase.co`)
-   - **Project API keys** > **anon** > **public** (long string starting with `eyJ...`)
+### 1. `user_profiles` Table
 
-## Step 3: Update .env.local
-
-1. Open `/Users/NithinAwasome/Downloads/AMA/.env.local`
-2. Replace the Supabase placeholders with your real credentials:
-
-```bash
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3...
-```
-
-## Step 4: Set Up Database Tables
-
-1. In your Supabase dashboard, go to **SQL Editor**
-2. Click "New Query"
-3. Copy and paste this SQL:
+Stores user authentication data and assigned career tracks.
 
 ```sql
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- User Profiles Table
-CREATE TABLE IF NOT EXISTS user_profiles (
+CREATE TABLE user_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
-  assigned_track TEXT,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE NOT NULL,
+  assigned_track TEXT CHECK (assigned_track IN ('gameDesign', 'artDesign', 'contentCreation')),
   career_data JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Career Progress Table
-CREATE TABLE IF NOT EXISTS career_progress (
+-- Enable Row Level Security
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can read their own profile
+CREATE POLICY "Users can read own profile"
+ON user_profiles
+FOR SELECT
+USING (auth.uid() = user_id);
+
+-- Policy: Users can insert their own profile
+CREATE POLICY "Users can insert own profile"
+ON user_profiles
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+-- Policy: Users can update their own profile
+CREATE POLICY "Users can update own profile"
+ON user_profiles
+FOR UPDATE
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+-- Create index for faster lookups
+CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
+```
+
+### 2. `career_progress` Table
+
+Stores detailed progress for each user's career track (XP, completed tasks, levels).
+
+```sql
+CREATE TABLE career_progress (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  track TEXT NOT NULL,
+  track TEXT NOT NULL CHECK (track IN ('Game Design', 'Game Asset Artist', 'Content Creation')),
   data JSONB NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (user_id, track)
 );
 
--- Row Level Security (RLS) Policies
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+-- Enable Row Level Security
 ALTER TABLE career_progress ENABLE ROW LEVEL SECURITY;
 
--- User Profiles Policies
-CREATE POLICY "Users can view their own profile"
-  ON user_profiles FOR SELECT
-  USING (auth.uid() = user_id);
+-- Policy: Users can read their own progress
+CREATE POLICY "Users can read own progress"
+ON career_progress
+FOR SELECT
+USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert their own profile"
-  ON user_profiles FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+-- Policy: Users can insert their own progress
+CREATE POLICY "Users can insert own progress"
+ON career_progress
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own profile"
-  ON user_profiles FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+-- Policy: Users can update their own progress
+CREATE POLICY "Users can update own progress"
+ON career_progress
+FOR UPDATE
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
 
--- Career Progress Policies
-CREATE POLICY "Users can view their own progress"
-  ON career_progress FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own progress"
-  ON career_progress FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update their own progress"
-  ON career_progress FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
--- Function to auto-update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Triggers for auto-updating updated_at
-CREATE TRIGGER update_user_profiles_updated_at
-  BEFORE UPDATE ON user_profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_career_progress_updated_at
-  BEFORE UPDATE ON career_progress
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
--- Create function to auto-create user profile on signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.user_profiles (user_id, assigned_track, career_data)
-  VALUES (NEW.id, NULL, NULL);
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Trigger to auto-create profile when user signs up
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+-- Create index for faster lookups
+CREATE INDEX idx_career_progress_user_id ON career_progress(user_id);
+CREATE INDEX idx_career_progress_track ON career_progress(track);
 ```
 
-4. Click **Run** to execute the SQL
+## How to Set Up in Supabase Dashboard
 
-## Step 5: Enable Google OAuth (Optional)
+### Step 1: Go to SQL Editor
 
-To enable "Sign in with Google":
+1. Log in to your Supabase Dashboard: https://supabase.com/dashboard
+2. Select your project: `vuaeriezdmrzalnxbyss`
+3. Navigate to **SQL Editor** in the left sidebar
 
-1. In Supabase dashboard, go to **Authentication** > **Providers**
-2. Find **Google** and click to expand
-3. Toggle **Enable Sign in with Google** to ON
-4. You'll need to create a Google OAuth application:
+### Step 2: Create Tables
 
-### Create Google OAuth App
+1. Click **+ New Query**
+2. Copy and paste the `user_profiles` table SQL above
+3. Click **Run** or press `Cmd/Ctrl + Enter`
+4. Repeat for the `career_progress` table
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Go to **APIs & Services** > **Credentials**
-4. Click **Create Credentials** > **OAuth client ID**
-5. Configure OAuth consent screen if prompted:
-   - User Type: External
-   - App name: AMA Career Platform
-   - User support email: Your email
-   - Developer contact: Your email
-6. Create OAuth Client ID:
-   - Application type: Web application
-   - Name: AMA Career Platform
-   - Authorized JavaScript origins: `https://xxxxxxxxxxxxx.supabase.co`
-   - Authorized redirect URIs: `https://xxxxxxxxxxxxx.supabase.co/auth/v1/callback`
-7. Copy **Client ID** and **Client Secret**
-8. Paste them into Supabase Google Provider settings
-9. Click **Save**
+### Step 3: Verify Tables Created
 
-## Step 6: Restart Development Server
+1. Go to **Table Editor** in the left sidebar
+2. You should see both tables:
+   - `user_profiles`
+   - `career_progress`
 
-After updating .env.local:
+### Step 4: Enable Authentication Providers
+
+1. Go to **Authentication** → **Providers**
+2. **Email** should already be enabled
+3. For **Google OAuth** (when ready to enable):
+   - Click on **Google** provider
+   - Toggle **Enable Sign in with Google**
+   - Add your Google OAuth credentials:
+     - **Client ID**: From Google Cloud Console
+     - **Client Secret**: From Google Cloud Console
+   - Add authorized redirect URLs:
+     - Development: `http://localhost:3000/api/auth/callback`
+     - Production: `https://your-vercel-app.vercel.app/api/auth/callback`
+
+## Environment Variables for Vercel
+
+When deploying to Vercel, make sure these environment variables are set:
 
 ```bash
-# Stop the current dev server (Ctrl+C if running)
-# Restart it
-npm run dev
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://vuaeriezdmrzalnxbyss.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+
+# Ultravox (you'll update with new key)
+NEXT_PUBLIC_ULTRAVOX_API_KEY=YOUR_ULTRAVOX_API_KEY
+ULTRAVOX_API_KEY=YOUR_ULTRAVOX_API_KEY
+
+# Perplexity
+PPLX_API_KEY=YOUR_PERPLEXITY_API_KEY
 ```
 
-## Step 7: Test Authentication
+## Data Structure Examples
 
-1. Open http://localhost:3000
-2. Click "Sign In" in the top right
-3. Try creating an account with email/password
-4. Or try "Sign in with Google" if you enabled OAuth
+### `user_profiles.career_data` JSON Structure:
+```json
+{
+  "assigned_track": "Game Design",
+  "session_transcript": "I love designing games...",
+  "analysis_reason": "User showed interest in game mechanics",
+  "call_id": "abc123",
+  "duration": 180,
+  "analyzed_at": "2025-12-02T12:00:00.000Z"
+}
+```
+
+### `career_progress.data` JSON Structure:
+```json
+{
+  "trackName": "Game Design",
+  "currentXP": 450,
+  "currentLevel": 2,
+  "levels": [
+    {
+      "id": "1",
+      "levelNumber": 1,
+      "title": "Foundation Level",
+      "description": "...",
+      "totalXP": 300,
+      "isUnlocked": true,
+      "isCompleted": true,
+      "tasks": [
+        {
+          "id": "task-1",
+          "title": "Introduction to Game Design",
+          "description": "...",
+          "type": "lesson",
+          "xp": 50,
+          "isCompleted": true,
+          "resources": [...]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Testing the Setup
+
+### 1. Test User Sign Up
+
+1. Start your app: `npm run dev`
+2. Complete the voice assessment (or use bypass mode)
+3. Click the sign in modal
+4. Create a new account with email/password
+5. Check Supabase Dashboard → **Authentication** → **Users**
+   - You should see the new user listed
+
+### 2. Test Progress Saving
+
+1. Sign in to your account
+2. Go to the dashboard
+3. Complete a task
+4. Check Supabase Dashboard → **Table Editor** → `career_progress`
+   - You should see a row with your `user_id` and progress data
+
+### 3. Test Progress Loading
+
+1. Sign out (or clear localStorage)
+2. Sign back in
+3. Your progress should load from Supabase
+4. Completed tasks should still be marked as complete
 
 ## Troubleshooting
 
-### "Supabase is not configured" error
-- Check that .env.local has your real Supabase URL and anon key
-- Restart the dev server after updating .env.local
-- Make sure there are no typos in the credentials
+### Issue: "Failed to save to Supabase"
 
-### "Invalid API key" error
-- Make sure you copied the **anon** / **public** key, not the **service_role** key
-- The anon key is safe to use in client-side code
-- Never expose the service_role key
+**Check:**
+1. RLS policies are correctly set up (see SQL above)
+2. User is authenticated (`auth.uid()` is not null)
+3. Table structure matches the schema
 
-### Google OAuth not working
-- Verify redirect URIs in Google Cloud Console match Supabase exactly
-- Check that Google provider is enabled in Supabase
-- Make sure Client ID and Secret are correct
+**Fix:**
+- Run the RLS policy SQL commands again
+- Check browser console for detailed error messages
 
-### Database errors
-- Verify the SQL schema was executed successfully
-- Check the Tables section in Supabase to see if tables exist
-- Review RLS policies are enabled
+### Issue: "No rows found" when loading progress
 
-## Security Best Practices
+**This is normal** when:
+- User hasn't completed any tasks yet
+- User is using the app for the first time
 
-1. **Never commit .env.local** - Already in .gitignore
-2. **Use Row Level Security (RLS)** - Already configured in SQL above
-3. **Keep service_role key secret** - Only use anon key in client code
-4. **Rotate keys regularly** - Can regenerate in Supabase dashboard
-5. **Enable 2FA on Supabase account** - Protect your project
+**App behavior:**
+- Falls back to loading fresh career data
+- Progress will be saved on first task completion
 
-## Next Steps
+### Issue: Authentication not working
 
-After Supabase is configured:
-1. ✅ Authentication will work (email/password + Google)
-2. ✅ User profiles will be created automatically on signup
-3. ✅ Career progress will be saved to database
-4. ✅ Data will persist across sessions and devices
+**Check:**
+1. `.env.local` has correct Supabase credentials
+2. Supabase URL and keys are correct
+3. Email authentication is enabled in Supabase Dashboard
+
+## Security Notes
+
+### Row Level Security (RLS)
+
+- **All tables have RLS enabled**
+- Users can only read/write their own data
+- Policies check `auth.uid() = user_id`
+
+### API Keys
+
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` is safe to expose (it's client-side)
+- RLS policies protect the data even with the public key
+- Service role key should NEVER be used in client code
+
+## Vercel Deployment Checklist
+
+Before deploying to Vercel:
+
+- [ ] Both Supabase tables created
+- [ ] RLS policies applied
+- [ ] Environment variables added to Vercel
+- [ ] Supabase URL configuration updated (if needed)
+- [ ] Test authentication locally first
+- [ ] Test progress saving/loading locally first
 
 ## Support
 
-- Supabase Docs: https://supabase.com/docs
-- Supabase Discord: https://discord.supabase.com/
-- Google OAuth Setup: https://supabase.com/docs/guides/auth/social-login/auth-google
+If you encounter issues:
 
-## Current Status
+1. Check the browser console for error messages
+2. Check Supabase Dashboard → **Logs** for database errors
+3. Verify RLS policies are correctly applied
+4. Ensure authentication is working (user is signed in)
 
-Check your browser console for:
-- ✅ No warning = Supabase is configured correctly
-- ⚠️ Warning = Supabase needs to be set up (follow this guide)
+---
 
-The app will work without Supabase, but authentication features will be disabled.
+**Status**: ✅ Ready for Supabase Setup
+
+Your app code is fully integrated with Supabase. You just need to create the database tables!
