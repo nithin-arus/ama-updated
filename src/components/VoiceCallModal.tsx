@@ -377,15 +377,27 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
           )}
 
           {/* Transcript Display */}
-          {callData.transcript.length > 0 && (
+          {callData.transcripts.length > 0 && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg max-h-32 overflow-y-auto">
               <h4 className="text-sm font-medium text-gray-700 mb-2">Conversation:</h4>
               <div className="text-sm text-gray-600 space-y-1">
-                {callData.transcript.map((text, index) => (
-                  <div key={index} className="p-2 bg-white rounded border-l-2 border-primary-200">
-                    {text}
-                  </div>
-                ))}
+                {callData.transcripts
+                  .filter((t) => t.isFinal)
+                  .map((transcript, index) => (
+                    <div
+                      key={index}
+                      className={`p-2 rounded border-l-2 ${
+                        transcript.speaker === 'agent'
+                          ? 'bg-primary-50 border-primary-400'
+                          : 'bg-white border-gray-300'
+                      }`}
+                    >
+                      <span className="font-medium text-xs text-gray-500">
+                        {transcript.speaker === 'agent' ? 'AMA: ' : 'You: '}
+                      </span>
+                      {transcript.text}
+                    </div>
+                  ))}
               </div>
             </div>
           )}
