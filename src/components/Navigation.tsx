@@ -88,18 +88,16 @@ export default function Navigation() {
                   </button>
                 </div>
               ) : (
-                <>
-                  <button
-                    onClick={() => {
-                      setAuthModalMode('signin');
-                      setShowAuthModal(true);
-                    }}
-                    className="flex items-center space-x-1 bg-primary-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
-                  >
-                    <User size={16} />
-                    <span>Sign In</span>
-                  </button>
-                </>
+                <button
+                  onClick={() => {
+                    setAuthModalMode('signin');
+                    setShowAuthModal(true);
+                  }}
+                  className="flex items-center space-x-1 bg-primary-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
+                >
+                  <User size={16} />
+                  <span>Sign In</span>
+                </button>
               )}
             </div>
 
@@ -157,19 +155,17 @@ export default function Navigation() {
                       </button>
                     </div>
                   ) : (
-                    <>
-                      <button
-                        onClick={() => {
-                          setAuthModalMode('signin');
-                          setShowAuthModal(true);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className="flex items-center space-x-2 w-full bg-primary-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
-                      >
-                        <User size={16} />
-                        <span>Sign In</span>
-                      </button>
-                    </>
+                    <button
+                      onClick={() => {
+                        setAuthModalMode('signin');
+                        setShowAuthModal(true);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="flex items-center space-x-2 w-full bg-primary-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-primary-700"
+                    >
+                      <User size={16} />
+                      <span>Sign In</span>
+                    </button>
                   )}
                 </div>
               </div>
