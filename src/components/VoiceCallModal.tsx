@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { X, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
-import { UltravoxCallManager, UltravoxCallState } from '@/lib/ultravox-call';
+import { UltravoxManager, UltravoxCallState } from '@/lib/ultravox-manager';
 import { analyzeAndSaveSession, generateCareerMap } from '@/utils/api';
 import { UltravoxResponse } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,18 +22,17 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
   const { userId } = useAuth();
   const [callState, setCallState] = useState<CallState>('idle');
   const [callData, setCallData] = useState<UltravoxCallState>({
+    status: 'disconnected',
     isActive: false,
-    isMuted: false,
-    callId: null,
+    transcripts: [],
     error: null,
-    transcript: [],
-    duration: 0,
   });
   const [progress, setProgress] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showConfettiModal, setShowConfettiModal] = useState(false);
   const [assignedTrack, setAssignedTrack] = useState<string>('');
-  const callManagerRef = useRef<UltravoxCallManager | null>(null);
+  const callManagerRef = useRef<UltravoxManager | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -63,23 +62,27 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
     }
     setCallState('idle');
     setProgress(0);
+    setIsMuted(false);
     setCallData({
+      status: 'disconnected',
       isActive: false,
-      isMuted: false,
-      callId: null,
+      transcripts: [],
       error: null,
-      transcript: [],
-      duration: 0,
     });
   };
 
   const handleCallStateChange = (state: UltravoxCallState) => {
+    console.log('[VoiceCallModal] State changed:', state);
     setCallData(state);
-    
-    if (state.isActive && callState !== 'active') {
-      setCallState('active');
-      startProgressTimer();
-    } else if (!state.isActive && callState === 'active') {
+
+    // Update call state based on Ultravox status
+    if (state.status === 'listening' || state.status === 'thinking' || state.status === 'speaking') {
+      if (callState !== 'active') {
+        setCallState('active');
+        startProgressTimer();
+        toast.success('Connected! AMA is ready to talk.');
+      }
+    } else if (state.status === 'disconnected' && callState === 'active') {
       setCallState('processing');
       handleCallEnd();
     } else if (state.error) {
@@ -94,12 +97,12 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
       setProgress(0);
 
       // Create new call manager
-      callManagerRef.current = new UltravoxCallManager(handleCallStateChange);
-      
+      callManagerRef.current = new UltravoxManager(handleCallStateChange);
+
       // Start the call
       await callManagerRef.current.startCall();
-      
-      toast.success('Call started! The AI will begin speaking shortly.');
+
+      toast.success('Connecting to AMA...');
     } catch (error) {
       console.error('Error starting call:', error);
       setCallState('error');
@@ -116,7 +119,15 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
 
   const toggleMute = () => {
     if (callManagerRef.current) {
-      callManagerRef.current.toggleMute();
+      if (isMuted) {
+        callManagerRef.current.unmute();
+        setIsMuted(false);
+        toast.success('Microphone unmuted');
+      } else {
+        callManagerRef.current.mute();
+        setIsMuted(true);
+        toast.success('Microphone muted');
+      }
     }
   };
 
@@ -124,15 +135,11 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
     try {
       if (!callManagerRef.current) return;
 
-      const callData = callManagerRef.current.getCallData();
-
-      // Get the transcript as a string
-      const transcriptText = callData.transcript;
+      // Get the full transcript
+      const transcriptText = callManagerRef.current.getFullTranscript();
 
       console.log('[VoiceCallModal] Processing call end:', {
-        callId: callData.callId,
         transcriptLength: transcriptText.length,
-        duration: callData.duration,
         userId: userId || 'not authenticated',
       });
 
@@ -144,8 +151,8 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
         const { track: assignedTrack, reason } = await analyzeAndSaveSession(
           transcriptText,
           userId,
-          callData.callId || undefined,
-          callData.duration
+          undefined, // callId not needed
+          0 // duration not tracked with new SDK
         );
         track = assignedTrack;
         console.log('[VoiceCallModal] Session analyzed:', { track, reason });
@@ -154,10 +161,10 @@ export default function VoiceCallModal({ isOpen, onClose, onComplete }: VoiceCal
         console.log('[VoiceCallModal] User not authenticated, analyzing locally');
 
         const ultravoxResponse: UltravoxResponse = {
-          sessionId: callData.callId || 'unknown',
+          sessionId: 'local-session',
           transcript: transcriptText,
-          duration: callData.duration,
-          metadata: callData.metadata,
+          duration: 0,
+          metadata: {},
         };
 
         // Use old generateCareerMap function to get the track
