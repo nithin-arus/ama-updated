@@ -8,15 +8,6 @@ interface DashboardLayoutProps {
 }
 
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
-  // ============================================================================
-  // TEMPORARY: Auth guard disabled for testing curriculum tracks
-  // TODO: Re-enable when Ultravox API key is fixed
-  // ============================================================================
-  console.log('Dashboard auth guard: TEMPORARILY DISABLED FOR TESTING');
-  return <>{children}</>;
-
-  // Original auth guard code (commented out for testing):
-  /*
   const cookieStore = cookies();
 
   const supabase = createServerClient(
@@ -46,5 +37,4 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     console.error('Dashboard auth guard error:', error);
     redirect('/?authRequired=true');
   }
-  */
 }
