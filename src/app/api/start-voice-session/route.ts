@@ -31,19 +31,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<SessionRe
     }
     
     // Start the call with AMA AI agent
+    // The agent already has all configuration built in (prompt, greeting, etc.)
     const response = await fetch('https://api.ultravox.ai/api/agents/0f1cf764-bec8-447c-a692-2cb1b77ff452/calls', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': API_KEY,
       },
-      body: JSON.stringify({
-        prompt: "You are a career assessment AI. Start by greeting the user and asking them about their career interests, skills, and goals. Guide them through a conversation to understand what type of career path would suit them best.",
-        templateContext: {
-          assessment_type: "career_guidance",
-          focus_areas: ["interests", "skills", "goals", "experience"]
-        }
-      }),
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
@@ -52,18 +47,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<SessionRe
     }
 
     const data = await response.json();
-    
+
     if (!data.callId) {
       throw new Error('Invalid response from Ultravox API - missing callId');
     }
-    
+
     console.log('Ultravox call started:', data.callId);
-    
+
     // Return the session data as JSON with 200 status
     return NextResponse.json({
       sessionId: data.callId,
       token: data.callId,
       callId: data.callId,
+      joinUrl: data.joinUrl,
     });
   } catch (error) {
     // Log the full error stack trace for debugging
